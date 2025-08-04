@@ -1,0 +1,113 @@
+<!-- templates/conversion.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>转换中 - Edge TTS 文本转语音工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-4xl mx-auto py-8 px-4">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-indigo-700 mb-2">转换中</h1>
+            <p class="text-gray-600">请稍等，您的文本正在转换为语音</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="text-center mb-6">
+                <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-600 border-opacity-50"></div>
+            </div>
+            
+            <div class="mb-6">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-700 font-medium" id="status-message">正在初始化...</span>
+                    <span class="text-indigo-600 font-bold" id="progress-percentage">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="progress-bar" class="bg-indigo-600 h-4 rounded-full transition-all duration-300 ease-in-out" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-blue-500 mt-1 mr-2"></i>
+                    <div>
+                        <h3 class="font-medium text-blue-700 mb-1">提示</h3>
+                        <p class="text-blue-600 text-sm">
+                            转换时间取决于文本长度，通常每千字需要约8-10秒。
+                            请耐心等待，不要关闭此页面。
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-center" id="stats-container">
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <p class="text-gray-500 text-sm">文本长度</p>
+                    <p class="text-xl font-bold text-gray-800">{{ session.text_length }} 字符</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <p class="text-gray-500 text-sm">预计时间</p>
+                    <p class="text-xl font-bold text-gray-800" id="estimated-time">
+                        {{ ((session.text_length / 1000) * ESTIMATED_TIME_PER_1000_CHARS) | round(1) }} 秒
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const taskId = "{{ task_id }}";
+        let progressInterval;
+        
+        function updateProgress() {
+            fetch(`/check_status/${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // 更新进度条和消息
+                    const progressBar = document.getElementById('progress-bar');
+                    const progressPercentage = document.getElementById('progress-percentage');
+                    const statusMessage = document.getElementById('status-message');
+                    
+                    progressBar.style.width = `${data.progress}%`;
+                    progressPercentage.textContent = `${data.progress}%`;
+                    statusMessage.textContent = data.message;
+                    
+                    // 处理完成状态
+                    if (data.status === 'completed') {
+                        clearInterval(progressInterval);
+                        window.location.href = `/result/${taskId}`;
+                    }
+                    
+                    // 处理失败状态
+                    if (data.status === 'failed') {
+                        clearInterval(progressInterval);
+                        Swal.fire({
+                            icon: 'error',
+                            title: '转换失败',
+                            text: data.message,
+                            confirmButtonText: '返回首页'
+                        }).then(() => {
+                            window.location.href = '/';
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('获取进度失败:', error);
+                });
+        }
+        
+        // 启动进度更新
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始更新
+            updateProgress();
+            
+            // 设置定时器每2秒更新一次
+            progressInterval = setInterval(updateProgress, 2000);
+        });
+    </script>
+</body>
+</html>
